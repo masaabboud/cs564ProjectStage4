@@ -5,40 +5,45 @@
 //TODO
 const Status createHeapFile(const string fileName)
 {
-    //declaring vars to use
     File* 		file;
     Status 		status;
     FileHdrPage*	hdrPage;
     int			hdrPageNo;
     int			newPageNo;
     Page*		newPage;
-    //added this ptr tp use allocPage 
+    //added this ptr tp use allocPage, may get rd of 
     Page*       page;
 
-    // try to open the file. This should return an error
+    // try to open the file. This should return an error (file is still unitilized)
     status = db.openFile(fileName, file);
     if (status != OK)
     {
-		// file doesn't exist. First create it and allocate
-        //may or may not be a string literal
-        db.createFile("fileName");
-        Status hdrStatus = bufMgr -> allocPage(file, hdrPageNo, page);
+        // create file which makes the file exist
+        status = db.createFile(fileName);
+        // call open file again to actually initilize the pointer
+        status = db.openFile(fileName, file);
+        //alloc page
+        status = bufMgr -> allocPage(file, hdrPageNo, page);
         hdrPage = (FileHdrPage*) page;
+
+        //initilize values in hdrPage
         hdrPage -> firstPage = -1;
         hdrPage -> lastPage = -1;
         hdrPage -> pageCnt = 1;
         hdrPage -> recCnt = 0;
         
-		Status pageStatus = bufMgr-> allocPage(file, newPageNo, newPage);
+        //allocte data page
+		status = bufMgr-> allocPage(file, newPageNo, newPage);
 		newPage -> init(newPageNo);
 
+        //update headerpage
         hdrPage->firstPage = newPageNo;
         hdrPage->lastPage = newPageNo;
 
-        Status unpinHDRStatus = bufMgr -> unPinPage(file, hdrPageNo, true);
+        status = bufMgr -> unPinPage(file, hdrPageNo, true);
         if (unpinHDRStatus != OK) cerr << "error in unpin of header page\n";
 
-        Status unpinDataStatus = bufMgr -> unPinPage(file, newPageNo, true);
+        status = bufMgr -> unPinPage(file, newPageNo, true);
         if (unpinDataStatus != OK) cerr << "error in unpin of data page\n";		
     }
     return (FILEEXISTS);
