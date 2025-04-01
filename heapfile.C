@@ -17,7 +17,15 @@ const Status createHeapFile(const string fileName)
     if (status != OK)
     {
 		// file doesn't exist. First create it and allocate
+        db->createfile();
 		// an empty header page and data page.
+        /* bm->allocPage() appropriately. 
+        As you know allocPage() will return a pointer 
+        to an empty page in the buffer pool along 
+        with the page number of the page. 
+        Take the Page* pointer returned from allocPage() 
+        and cast it to a FileHdrPage*. Using this pointer 
+        initialize the values in the header page.*/
 		
 		
 		
