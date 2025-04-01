@@ -16,6 +16,10 @@ const Status createHeapFile(const string fileName)
 
     // try to open the file. This should return an error (file is still unitilized)
     status = db.openFile(fileName, file);
+    if(status == OK)
+    {
+        return FILEEXISTS;
+    }
     if (status != OK)
     {
         // create file which makes the file exist
@@ -41,19 +45,17 @@ const Status createHeapFile(const string fileName)
         hdrPage->lastPage = newPageNo;
 
         status = bufMgr -> unPinPage(file, hdrPageNo, true);
-        if (unpinHDRStatus != OK) cerr << "error in unpin of header page\n";
+        if (status != OK) cerr << "error in unpin of header page\n";
 
         status = bufMgr -> unPinPage(file, newPageNo, true);
-        if (unpinDataStatus != OK) cerr << "error in unpin of data page\n";		
+        if (status != OK) cerr << "error in unpin of data page\n";		
     }
-    return (FILEEXISTS);
+    return OK;
 }
 
 // routine to destroy a heapfile
-//TODO
 const Status destroyHeapFile(const string fileName)
 {
-    db.destroyFile(fileName);
 	return (db.destroyFile (fileName));
 }
 
