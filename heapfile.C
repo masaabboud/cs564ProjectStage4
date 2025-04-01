@@ -2,6 +2,7 @@
 #include "error.h"
 
 // routine to create a heapfile
+//TODO
 const Status createHeapFile(const string fileName)
 {
     File* 		file;
@@ -35,8 +36,10 @@ const Status createHeapFile(const string fileName)
 }
 
 // routine to destroy a heapfile
+//TODO
 const Status destroyHeapFile(const string fileName)
 {
+    db -> destroyFile();
 	return (db.destroyFile (fileName));
 }
 
