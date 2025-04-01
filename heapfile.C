@@ -5,40 +5,41 @@
 //TODO
 const Status createHeapFile(const string fileName)
 {
+    //declaring vars to use
     File* 		file;
     Status 		status;
     FileHdrPage*	hdrPage;
     int			hdrPageNo;
     int			newPageNo;
     Page*		newPage;
+    //added this ptr tp use allocPage 
+    Page*       page;
 
     // try to open the file. This should return an error
     status = db.openFile(fileName, file);
     if (status != OK)
     {
 		// file doesn't exist. First create it and allocate
-        db->createfile();
-		// an empty header page and data page.
-        /* bm->allocPage() appropriately. 
-        As you know allocPage() will return a pointer 
-        to an empty page in the buffer pool along 
-        with the page number of the page. 
-        Take the Page* pointer returned from allocPage() 
-        and cast it to a FileHdrPage*. Using this pointer 
-        initialize the values in the header page.*/
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+        //may or may not be a string literal
+        db.createFile("fileName");
+        Status hdrStatus = bufMgr -> allocPage(file, hdrPageNo, page);
+        hdrPage = (FileHdrPage*) page;
+        hdrPage -> firstPage = -1;
+        hdrPage -> lastPage = -1;
+        hdrPage -> pageCnt = 1;
+        hdrPage -> recCnt = 0;
+        
+		Status pageStatus = bufMgr-> allocPage(file, newPageNo, newPage);
+		newPage -> init(newPageNo);
+
+        hdrPage->firstPage = newPageNo;
+        hdrPage->lastPage = newPageNo;
+
+        Status unpinHDRStatus = bufMgr -> unPinPage(file, hdrPageNo, true);
+        if (unpinHDRStatus != OK) cerr << "error in unpin of header page\n";
+
+        Status unpinDataStatus = bufMgr -> unPinPage(file, newPageNo, true);
+        if (unpinDataStatus != OK) cerr << "error in unpin of data page\n";		
     }
     return (FILEEXISTS);
 }
@@ -47,7 +48,7 @@ const Status createHeapFile(const string fileName)
 //TODO
 const Status destroyHeapFile(const string fileName)
 {
-    db -> destroyFile();
+    db.destroyFile(fileName);
 	return (db.destroyFile (fileName));
 }
 
