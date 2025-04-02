@@ -405,18 +405,66 @@ const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
         return INVALIDRECLEN;
     }
 
-    //Call curPage->insertRecord
-    curPage->insertRecord(rec, outRid);
-    
+    // check if curPage is NULL. If so, make the last page the current page and read it into the buffer. 
+    if (curPage == NULL) {
+        newPageNo = headerPage->lastPage;
+        curPageNo=newPageNo;
+        bufMgr->readPage(filePtr, curPageNo, newPage);
+        curPage = newPage;
+        curDirtyFlag=false;
+    }
+
+    // Call curPage->insertRecord
+    status = curPage->insertRecord(rec, outRid);
+
+    if (status != OK) {
+        //Create a new page
+        bufMgr->allocPage(filePtr, newPageNo, newPage);
+        //initialize it
+        newPage->init(newPageNo);
+        
+        //modify header page content properly
+        headerPage->pageCnt++;
+        
+        int curLastPage = headerPage->lastPage;
+        if (curPageNo == curLastPage) {
+            headerPage->lastPage = newPageNo;
+            curPage->setNextPage(newPageNo);
+            hdrDirtyFlag=true;
+            curDirtyFlag=true;
+            curPage = newPage;
+            status = curPage->insertRecord(rec, outRid);
+        } else {
+            //link new page properly. This is different if the current page is NOT the last page
+
+            // 1) save current page's next.
+            int savedNext = curPage->getNextPage(curPageNo);
+            // 2) current page's "next" is now newPage.
+            curPage->setNextPage(newPageNo);
+            // 3) newPage's next is now curPage's saved next value from step 1.
+            newPage->setNextPage(savedNext);
+
+            //bookKeeping?
+            //header page's page count increased (already done outside the if else for both cases)
+            //headerPage dirty flag true
+            //curDirtyFlag is true (next was modified for original page)
+            hdrDirtyFlag=true;
+            curDirtyFlag=true;
+
+            //make current page newly allocated page
+            curPage = newPage;
+            //current dirty flag is true; the new page's "next" attribute was altered
+            curDirtyFlag=true;
+
+            //try to insert the record again (Return error if doesn't work again??)
+            status = newPage->insertRecord(rec, outRid);
+        }
+    }
   
-  
-  
-  
-  
-  
-  
-  
-  
+    //update data fields such as recCnt, hdrDirtyFlag, curDirtyFlag, etc
+    headerPage->recCnt++;
+    hdrDirtyFlag=true; // What do we set these to?? True or false?
+    curDirtyFlag=true;
   
 }
 
