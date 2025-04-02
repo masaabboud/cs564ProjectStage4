@@ -79,20 +79,19 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     {
     //Next, it reads and pins the header page for the file in the buffer pool, initializing the private data members headerPage, headerPageNo, and hdrDirtyFlag.
     int hdrPageNo;
-    Page * page;
     status = filePtr->getFirstPage(hdrPageNo);
-    status = bufMgr->readPage(filePtr, hdrPageNo, page); //also pins it??
-    FileHdrPage *hdrPage = (FileHdrPage*) page;
+    status = bufMgr->readPage(filePtr, hdrPageNo, pagePtr); //also pins it??
 
     //initializing the private data members headerPage, headerPageNo, and hdrDirtyFlag.
     int hdrPageNo;
-    headerPage = hdrPage;
+    headerPage = (FileHdrPage*) pagePtr;
     headerPageNo = hdrPageNo;
     hdrDirtyFlag = false;  //is this initially false?
 
     //Finally, read and pin the first page of the file into the buffer pool, initializing the values of curPage, curPageNo, and curDirtyFlag appropriately
-    curPage = page; // TODO
-    curPageNo = hdrPageNo;
+    curPageNo = headerPage->firstPage;
+    bufMgr->readPage(filePtr, curPageNo, pagePtr);
+    curPage = pagePtr;
     curDirtyFlag = false;
 
 	//Set curRec to NULLRID	
@@ -379,6 +378,19 @@ InsertFileScan::~InsertFileScan()
 }
 
 // Insert a record into the file
+/*
+Inserts the record described by rec into the file returning the RID of the inserted record in outRid.
+
+TIPS: check if curPage is NULL. If so, make the last page the current page and read it into the buffer. 
+Call curPage->insertRecord to insert the record. If successful, remember to DO THE BOOKKEEPING. That is, 
+you have to update data fields such as recCnt, hdrDirtyFlag, curDirtyFlag, etc.
+
+If can't insert into the current page, then create a new page, 
+initialize it properly, modify the header page content properly, link up 
+the new page appropriately, make the current page to be the newly allocated page, 
+then try to insert the record. Don't forget bookkeeping that must be done 
+after successfully inserting the record.
+*/
 const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
 {
     Page*	newPage;
@@ -393,8 +405,9 @@ const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
         return INVALIDRECLEN;
     }
 
-  
-  
+    //Call curPage->insertRecord
+    curPage->insertRecord(rec, outRid);
+    
   
   
   
