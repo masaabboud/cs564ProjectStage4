@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.sqlbook": "sql",
+        "*.ndjson": "jsonl",
+        "*.dbclient-js": "javascript",
+        "buf.C": "cpp",
+        "page.C": "cpp",
+        "bufHash.C": "cpp",
+        "db.C": "cpp",
+        "heapfile.C": "cpp",
+        "error.C": "cpp"
+    }
+}
