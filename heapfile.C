@@ -81,7 +81,7 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     int hdrPageNo;
     Page * page;
     status = filePtr->getFirstPage(hdrPageNo);
-    status = bufMgr->allocPage(filePtr, hdrPageNo, page); //also pins it??
+    status = bufMgr->readPage(filePtr, hdrPageNo, page); //also pins it??
     FileHdrPage *hdrPage = (FileHdrPage*) page;
 
     //initializing the private data members headerPage, headerPageNo, and hdrDirtyFlag.
