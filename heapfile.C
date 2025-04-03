@@ -2,15 +2,14 @@
 #include "error.h"
 
 // routine to create a heapfile
-//TODO
 const Status createHeapFile(const string fileName)
 {
-    File* 		file;
-    Status 		status;
-    FileHdrPage*	hdrPage;
-    int			hdrPageNo;
-    int			newPageNo;
-    Page*		newPage;
+   File*       file;
+    Status      status;
+    FileHdrPage*    hdrPage;
+    int         hdrPageNo;
+    int         newPageNo;
+    Page*       newPage;
     //added this ptr tp use allocPage, may get rd of 
     Page*       page;
 
@@ -37,8 +36,8 @@ const Status createHeapFile(const string fileName)
         hdrPage -> recCnt = 0;
         
         //allocte data page
-		status = bufMgr-> allocPage(file, newPageNo, newPage);
-		newPage -> init(newPageNo);
+        status = bufMgr-> allocPage(file, newPageNo, newPage);
+        newPage -> init(newPageNo);
 
         //update headerpage
         hdrPage->firstPage = newPageNo;
@@ -48,10 +47,12 @@ const Status createHeapFile(const string fileName)
         if (status != OK) cerr << "error in unpin of header page\n";
 
         status = bufMgr -> unPinPage(file, newPageNo, true);
-        if (status != OK) cerr << "error in unpin of data page\n";		
+        if (status != OK) cerr << "error in unpin of data page\n";      
     }
     return OK;
 }
+
+
 
 // routine to destroy a heapfile
 const Status destroyHeapFile(const string fileName)
@@ -60,18 +61,10 @@ const Status destroyHeapFile(const string fileName)
 }
 
 // constructor opens the underlying file
-/*
-This method first opens the appropriate file by calling db.openFile() (do not forget to save the File* returned in the filePtr data member).
-Next, it reads and pins the header page for the file in the buffer pool, initializing the private data members headerPage, headerPageNo, and 
-hdrDirtyFlag. You might be wondering how you get the page number of the header page. This is what file->getFirstPage() is used for 
-(see description of the I/O layer)! Finally, read and pin the first page of the file into the buffer pool, initializing the values of curPage, 
-curPageNo, and curDirtyFlag appropriately. Set curRec to NULLRID.
-*/
-
 HeapFile::HeapFile(const string & fileName, Status& returnStatus)
 {
-    Status 	status;
-    Page*	pagePtr;
+    Status  status;
+    Page*   pagePtr;
 
     cout << "opening file " << fileName << endl;
 
@@ -84,7 +77,7 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     status = bufMgr->readPage(filePtr, hdrPageNo, pagePtr); //also pins it??
 
     //initializing the private data members headerPage, headerPageNo, and hdrDirtyFlag.
-    int hdrPageNo;
+    //int hdrPageNo;
     headerPage = (FileHdrPage*) pagePtr;
     headerPageNo = hdrPageNo;
     hdrDirtyFlag = false;  //is this initially false?
@@ -95,17 +88,19 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     curPage = pagePtr;
     curDirtyFlag = false;
 
-	//Set curRec to NULLRID	
-	curRec = NULLRID;
+    //Set curRec to NULLRID 
+    curRec = NULLRID;
 
     }
     else
     {
-    	cerr << "open of heap file failed\n";
-		returnStatus = status;
-		return;
+        cerr << "open of heap file failed\n";
+        returnStatus = status;
+        return;
     }
 }
+
+
 
 // the destructor closes the file
 HeapFile::~HeapFile()
@@ -146,23 +141,43 @@ const int HeapFile::getRecCnt() const
   return headerPage->recCnt;
 }
 
-// retrieve an arbitrary record from a file.
-// if record is not on the currently pinned page, the current page
-// is unpinned and the required page is read into the buffer pool
-// and pinned.  returns a pointer to the record via the rec parameter
-//TODO
+//retrieve an arbitrary record from a file.
+// if record is not on the currently pinned page
+    // current page is unpinned
+    //the required page is read into the buffer pooland pinned
+    //returns a pointer to the record via the rec parameter
+
 const Status HeapFile::getRecord(const RID & rid, Record & rec)
 {
     Status status;
 
     // cout<< "getRecord. record (" << rid.pageNo << "." << rid.slotNo << ")" << endl;
-   
-   
-   
-   
-   
-   
-   
+
+    //Kavya addition start
+
+   //Page* curPage; : data page currently pinned in buffer pool
+   //int   curPageNo; : page number of pinned page
+
+    //record is not on currently pinned page
+    cout<< "getRecord. record (" << rid.pageNo << "." << rid.slotNo << ")" << endl;
+    cout<< "getRecord. record (" << curPageNo << "." << rid.slotNo << ")" << endl;
+    if (rid.pageNo != curPageNo) {
+        //unpin curPageNo - is this necessary? do we have to unpin or can both be pinned simeltaniously?
+        //status = bufMgr->unPinPage(filePtr, curPageNo, false);
+        //read into buffer and pin page (readPage pins the page)
+        status = bufMgr->readPage(filePtr, rid.pageNo, curPage);
+        cout<< "getRecord. record (" << curPageNo << "." << rid.slotNo << ")" << endl;
+        //Update the current page number to reflect the new page - is this necessary?
+        curPageNo = rid.pageNo;
+    }
+
+
+    //we know current page has the correct pointer
+    //this "getRecord" is from the page class
+    Status rstatus = curPage->getRecord(rid, rec);
+    return rstatus;
+    
+    //Kavya addition end
 }
 
 HeapFileScan::HeapFileScan(const string & name,
@@ -251,26 +266,64 @@ const Status HeapFileScan::resetScan()
     return OK;
 }
 
-//TODO
+//returns the RID of the next record that satisfies the scan predicate
 const Status HeapFileScan::scanNext(RID& outRid)
 {
-    Status 	status = OK;
-    RID		nextRid;
-    RID		tmpRid;
-    int 	nextPageNo;
-    Record      rec;
+    Status    status = OK;
+    RID     nextRid;
+    RID     tmpRid;
+    int     nextPageNo;
+    Record      rec; 
+    Page* page;
 
+    //We want to loop through the pages in the file
+    while(status == OK){
+        //keep the current page pinned until all the records on the page have been processed
+        //nextRID isnt sewt to anythig?
+        nextPageNo = nextRid.pageNo;
+        status = bufMgr -> readPage(filePtr, nextPageNo, page);
+       // page->pinCnt = 1;
+        //if we cant read status most likely there is not a next page
+        if(status != OK)
+        {
+        return status;
+        }
+        //now that we are on a page, we need to access the records on the page
+
+        tmpRid = nextRid;
+        Status recordStatus = page -> firstRecord(tmpRid);
+
+         //we need to loop through the records on a page and check 
+        //if they match requirements to be returned
+         while (recordStatus == OK) //if we cant get a record, it probs ran out
+        {
+            /*
+                For each page, use the firstRecord() and nextRecord()
+                methods of the Page class to get the rids of all the records 
+                on the page.
+            */
+            //const Status nextRecord(const RID& curRid, RID& nextRid) const;
+            page->getRecord(tmpRid, rec);
+            status = page -> nextRecord(tmpRid, nextRid);
+
+            *RID temp = (*RID) tmpRid;
+            // const bool matchRec(const Record & rec) const;
+            temp -> matchRec(rec);
+            /*
+            Convert the rid to a pointer to the record data and 
+            invoke matchRec() to determine if record satisfies the filter 
+            associated with the scan.
+            */
+            
+        }
+
+    }
     
-	
-	
-	
-	
-	
-	
-	
-	
-	
+    //page->pinCnt = 0;
+    return OK;
+        
 }
+
 
 
 // returns pointer to the current record.  page is left pinned
@@ -278,6 +331,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
 
 const Status HeapFileScan::getRecord(Record & rec)
 {
+    
     return curPage->getRecord(curRec, rec);
 }
 
@@ -378,6 +432,7 @@ InsertFileScan::~InsertFileScan()
     }
 }
 
+
 // Insert a record into the file
 /*
 Inserts the record described by rec into the file returning the RID of the inserted record in outRid.
@@ -468,5 +523,3 @@ const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
     curDirtyFlag=true;
   
 }
-
-
