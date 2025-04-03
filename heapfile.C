@@ -60,7 +60,14 @@ const Status destroyHeapFile(const string fileName)
 }
 
 // constructor opens the underlying file
-//TODO
+/*
+This method first opens the appropriate file by calling db.openFile() (do not forget to save the File* returned in the filePtr data member).
+Next, it reads and pins the header page for the file in the buffer pool, initializing the private data members headerPage, headerPageNo, and 
+hdrDirtyFlag. You might be wondering how you get the page number of the header page. This is what file->getFirstPage() is used for 
+(see description of the I/O layer)! Finally, read and pin the first page of the file into the buffer pool, initializing the values of curPage, 
+curPageNo, and curDirtyFlag appropriately. Set curRec to NULLRID.
+*/
+
 HeapFile::HeapFile(const string & fileName, Status& returnStatus)
 {
     Status 	status;
@@ -71,17 +78,26 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     // open the file and read in the header page and the first data page
     if ((status = db.openFile(fileName, filePtr)) == OK)
     {
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+    //Next, it reads and pins the header page for the file in the buffer pool, initializing the private data members headerPage, headerPageNo, and hdrDirtyFlag.
+    int hdrPageNo;
+    status = filePtr->getFirstPage(hdrPageNo);
+    status = bufMgr->readPage(filePtr, hdrPageNo, pagePtr); //also pins it??
+
+    //initializing the private data members headerPage, headerPageNo, and hdrDirtyFlag.
+    int hdrPageNo;
+    headerPage = (FileHdrPage*) pagePtr;
+    headerPageNo = hdrPageNo;
+    hdrDirtyFlag = false;  //is this initially false?
+
+    //Finally, read and pin the first page of the file into the buffer pool, initializing the values of curPage, curPageNo, and curDirtyFlag appropriately
+    curPageNo = headerPage->firstPage;
+    bufMgr->readPage(filePtr, curPageNo, pagePtr);
+    curPage = pagePtr;
+    curDirtyFlag = false;
+
+	//Set curRec to NULLRID	
+	curRec = NULLRID;
+
     }
     else
     {
@@ -363,6 +379,19 @@ InsertFileScan::~InsertFileScan()
 }
 
 // Insert a record into the file
+/*
+Inserts the record described by rec into the file returning the RID of the inserted record in outRid.
+
+TIPS: check if curPage is NULL. If so, make the last page the current page and read it into the buffer. 
+Call curPage->insertRecord to insert the record. If successful, remember to DO THE BOOKKEEPING. That is, 
+you have to update data fields such as recCnt, hdrDirtyFlag, curDirtyFlag, etc.
+
+If can't insert into the current page, then create a new page, 
+initialize it properly, modify the header page content properly, link up 
+the new page appropriately, make the current page to be the newly allocated page, 
+then try to insert the record. Don't forget bookkeeping that must be done 
+after successfully inserting the record.
+*/
 const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
 {
     Page*	newPage;
@@ -377,17 +406,66 @@ const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
         return INVALIDRECLEN;
     }
 
+    // check if curPage is NULL. If so, make the last page the current page and read it into the buffer. 
+    if (curPage == NULL) {
+        newPageNo = headerPage->lastPage;
+        curPageNo=newPageNo;
+        bufMgr->readPage(filePtr, curPageNo, newPage);
+        curPage = newPage;
+        curDirtyFlag=false;
+    }
+
+    // Call curPage->insertRecord
+    status = curPage->insertRecord(rec, outRid);
+
+    if (status != OK) {
+        //Create a new page
+        bufMgr->allocPage(filePtr, newPageNo, newPage);
+        //initialize it
+        newPage->init(newPageNo);
+        
+        //modify header page content properly
+        headerPage->pageCnt++;
+        
+        int curLastPage = headerPage->lastPage;
+        if (curPageNo == curLastPage) {
+            headerPage->lastPage = newPageNo;
+            curPage->setNextPage(newPageNo);
+            hdrDirtyFlag=true;
+            curDirtyFlag=true;
+            curPage = newPage;
+            status = curPage->insertRecord(rec, outRid);
+        } else {
+            //link new page properly. This is different if the current page is NOT the last page
+
+            // 1) save current page's next.
+            int savedNext = curPage->getNextPage(curPageNo);
+            // 2) current page's "next" is now newPage.
+            curPage->setNextPage(newPageNo);
+            // 3) newPage's next is now curPage's saved next value from step 1.
+            newPage->setNextPage(savedNext);
+
+            //bookKeeping?
+            //header page's page count increased (already done outside the if else for both cases)
+            //headerPage dirty flag true
+            //curDirtyFlag is true (next was modified for original page)
+            hdrDirtyFlag=true;
+            curDirtyFlag=true;
+
+            //make current page newly allocated page
+            curPage = newPage;
+            //current dirty flag is true; the new page's "next" attribute was altered
+            curDirtyFlag=true;
+
+            //try to insert the record again (Return error if doesn't work again??)
+            status = newPage->insertRecord(rec, outRid);
+        }
+    }
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+    //update data fields such as recCnt, hdrDirtyFlag, curDirtyFlag, etc
+    headerPage->recCnt++;
+    hdrDirtyFlag=true; // What do we set these to?? True or false?
+    curDirtyFlag=true;
   
 }
 
