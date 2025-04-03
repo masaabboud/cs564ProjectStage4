@@ -60,6 +60,7 @@ const Status destroyHeapFile(const string fileName)
 }
 
 // constructor opens the underlying file
+//TODO
 HeapFile::HeapFile(const string & fileName, Status& returnStatus)
 {
     Status 	status;
@@ -133,7 +134,7 @@ const int HeapFile::getRecCnt() const
 // if record is not on the currently pinned page, the current page
 // is unpinned and the required page is read into the buffer pool
 // and pinned.  returns a pointer to the record via the rec parameter
-
+//TODO
 const Status HeapFile::getRecord(const RID & rid, Record & rec)
 {
     Status status;
@@ -234,7 +235,7 @@ const Status HeapFileScan::resetScan()
     return OK;
 }
 
-
+//TODO
 const Status HeapFileScan::scanNext(RID& outRid)
 {
     Status 	status = OK;
